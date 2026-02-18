@@ -20,6 +20,7 @@ import time
 from pathlib import Path
 
 import openpyxl
+from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 
 # ============================================================================
 # KONFIGURATION - hier bei Bedarf anpassen
@@ -88,6 +89,18 @@ def format_duration(seconds: float) -> str:
     if h > 0:
         return f"{h}h {m:02d}m {s:02d}s"
     return f"{m}m {s:02d}s"
+
+
+def sanitize_excel_value(value):
+    """
+    Bereinigt Werte fuer den Excel-Export:
+    - entfernt verbotene Steuerzeichen
+    - begrenzt Strings auf Excels Zell-Limit (32767 Zeichen)
+    """
+    if not isinstance(value, str):
+        return value
+    cleaned = ILLEGAL_CHARACTERS_RE.sub("", value)
+    return cleaned[:32767]
 
 
 # ============================================================================
@@ -425,13 +438,15 @@ def export_results(entries: list[dict], transcribed: dict, downloaded: dict):
             status,
         ]
 
-        for col, val in enumerate(values, 1):
+        excel_values = [sanitize_excel_value(v) for v in values]
+
+        for col, val in enumerate(excel_values, 1):
             ws.cell(row=row_idx, column=col, value=val)
 
         csv_line = ";".join(
             '"' + str(v).replace('"', '""') + '"' if ";" in str(v) or '"' in str(v) or "\n" in str(v)
             else str(v)
-            for v in values
+            for v in excel_values
         )
         csv_lines.append(csv_line)
 
